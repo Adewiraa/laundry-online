@@ -18,7 +18,8 @@ import {
   Package,
   Activity,
   Truck,
-  DollarSign
+  DollarSign,
+  Trash2
 } from 'lucide-react'
 
 interface CustomerDashboardProps {
@@ -49,6 +50,16 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
   const [showMockPaymentModal, setShowMockPaymentModal] = useState(false)
   const [activePaymentOrderId, setActivePaymentOrderId] = useState<string | null>(null)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+
+  // Address Manager States
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [newAddressLabel, setNewAddressLabel] = useState('')
+  const [newAddressText, setNewAddressText] = useState('')
+  const [newAddressNotes, setNewAddressNotes] = useState('')
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
+
+  // Timeline Logs State
+  const [expandedLogsOrderId, setExpandedLogsOrderId] = useState<string | null>(null)
 
   // Ambil data awal
   useEffect(() => {
@@ -91,6 +102,9 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
         order_items (
           *,
           service_id (name, unit, price_per_unit)
+        ),
+        order_status_logs (
+          *
         )
       `)
       .eq('customer_id', user.id)
@@ -286,6 +300,46 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
     }
   }
 
+  // Pengelolaan Alamat Baru (CRUD)
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newAddressLabel || !newAddressText) {
+      alert('Label dan Alamat Lengkap harus diisi!')
+      return
+    }
+    setIsSavingAddress(true)
+    try {
+      const { error } = await supabase.from('addresses').insert({
+        user_id: user.id,
+        label: newAddressLabel,
+        full_address: newAddressText,
+        notes: newAddressNotes,
+      })
+      if (error) throw error
+      setNewAddressLabel('')
+      setNewAddressText('')
+      setNewAddressNotes('')
+      fetchAddresses()
+      alert('Alamat berhasil ditambahkan!')
+    } catch (err: any) {
+      alert(err.message || 'Gagal menyimpan alamat')
+    } finally {
+      setIsSavingAddress(false)
+    }
+  }
+
+  const handleDeleteAddress = async (addressId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus alamat ini?')) return
+    try {
+      const { error } = await supabase.from('addresses').delete().eq('id', addressId)
+      if (error) throw error
+      fetchAddresses()
+      alert('Alamat berhasil dihapus!')
+    } catch (err: any) {
+      alert(err.message || 'Gagal menghapus alamat')
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -363,12 +417,20 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
               Pesan sekarang, kurir kami akan mengambil pakaian kotor Anda secara gratis dan mengembalikannya dalam keadaan wangi dan rapi.
             </p>
           </div>
-          <button
-            onClick={() => setShowOrderModal(true)}
-            className="flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-sm font-bold text-blue-600 shadow-md transition duration-200 hover:bg-blue-50 active:scale-95"
-          >
-            <Plus className="h-5 w-5" /> Pesan Laundry Baru
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => setShowAddressModal(true)}
+              className="flex items-center gap-2 rounded-2xl bg-blue-700/50 border border-blue-400/30 px-6 py-3.5 text-sm font-bold text-white shadow-md transition duration-200 hover:bg-blue-700/80 active:scale-95"
+            >
+              Kelola Alamat
+            </button>
+            <button
+              onClick={() => setShowOrderModal(true)}
+              className="flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-sm font-bold text-blue-600 shadow-md transition duration-200 hover:bg-blue-50 active:scale-95"
+            >
+              <Plus className="h-5 w-5" /> Pesan Laundry Baru
+            </button>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -563,6 +625,53 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
                         )
                       })}
                     </div>
+                  </div>
+
+                  {/* Timeline Logs / Detail Status */}
+                  <div className="mt-6 border-t border-zinc-200/60 dark:border-zinc-800/60 pt-4">
+                    <button
+                      onClick={() =>
+                        setExpandedLogsOrderId(
+                          expandedLogsOrderId === order.id ? null : order.id
+                        )
+                      }
+                      className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      {expandedLogsOrderId === order.id
+                        ? 'Sembunyikan Log Kronologi'
+                        : 'Lihat Detail Kronologi Cucian'}
+                    </button>
+
+                    {expandedLogsOrderId === order.id && (
+                      <div className="mt-4 pl-4 border-l-2 border-zinc-200 dark:border-zinc-800 space-y-4">
+                        {order.order_status_logs && order.order_status_logs.length > 0 ? (
+                          order.order_status_logs
+                            .sort(
+                              (a: any, b: any) =>
+                                new Date(a.created_at).getTime() -
+                                new Date(b.created_at).getTime()
+                            )
+                            .map((log: any) => (
+                              <div key={log.id} className="relative pl-2">
+                                <div className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-blue-500"></div>
+                                <span className="block text-[10px] font-bold text-zinc-400">
+                                  {new Date(log.created_at).toLocaleString('id-ID', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                                <p className="text-sm text-zinc-700 dark:text-zinc-300 mt-0.5">
+                                  {log.description}
+                                </p>
+                              </div>
+                            ))
+                        ) : (
+                          <p className="text-xs text-zinc-500">Belum ada catatan kronologi.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -774,6 +883,100 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
                 Simulasikan Lunas
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Kelola Alamat */}
+      {showAddressModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white p-6 shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <MapPin className="h-5.5 w-5.5 text-blue-600" /> Kelola Alamat Penjemputan
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAddressModal(false)
+                }}
+                className="rounded-xl p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* List Alamat Aktif */}
+            <div className="max-h-60 overflow-y-auto mb-6 space-y-2">
+              <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Daftar Alamat Anda</h4>
+              {addresses.length === 0 ? (
+                <p className="text-xs text-zinc-500">Belum ada alamat terdaftar.</p>
+              ) : (
+                addresses.map((addr) => (
+                  <div key={addr.id} className="flex justify-between items-center p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850">
+                    <div className="text-xs text-zinc-700 dark:text-zinc-300">
+                      <strong className="text-zinc-900 dark:text-white">{addr.label}</strong>
+                      <p className="mt-0.5">{addr.full_address}</p>
+                      {addr.notes && <span className="text-zinc-400">Catatan: {addr.notes}</span>}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteAddress(addr.id)}
+                      className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-xl"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Form Tambah Alamat Baru */}
+            <form onSubmit={handleSaveAddress} className="space-y-3 border-t border-zinc-200/60 dark:border-zinc-800/60 pt-4">
+              <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Tambah Alamat Baru</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase">Label</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Rumah/Kantor"
+                    value={newAddressLabel}
+                    onChange={(e) => setNewAddressLabel(e.target.value)}
+                    className="w-full mt-1 rounded-xl border border-zinc-200 bg-white py-2 px-3 text-xs outline-none focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-zinc-500 uppercase">Catatan (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Pagar hitam / lantai 3"
+                    value={newAddressNotes}
+                    onChange={(e) => setNewAddressNotes(e.target.value)}
+                    className="w-full mt-1 rounded-xl border border-zinc-200 bg-white py-2 px-3 text-xs outline-none focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 uppercase">Alamat Lengkap</label>
+                <textarea
+                  required
+                  rows={2}
+                  placeholder="Masukkan jalan, RT/RW, nomor rumah, kelurahan..."
+                  value={newAddressText}
+                  onChange={(e) => setNewAddressText(e.target.value)}
+                  className="w-full mt-1 rounded-xl border border-zinc-200 bg-white py-2 px-3 text-xs outline-none focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingAddress}
+                  className="w-full rounded-2xl bg-blue-600 hover:bg-blue-700 py-3 text-xs font-bold text-white shadow-md animate-none"
+                >
+                  {isSavingAddress ? 'Menyimpan...' : 'Simpan Alamat'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
