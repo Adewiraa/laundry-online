@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Package,
   Activity,
-  Truck
+  Truck,
+  DollarSign
 } from 'lucide-react'
 
 interface CustomerDashboardProps {
@@ -43,6 +44,11 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
   const [paymentMethod, setPaymentMethod] = useState('cod')
   const [orderError, setOrderError] = useState('')
   const [orderSuccess, setOrderSuccess] = useState('')
+
+  // Payment States
+  const [showMockPaymentModal, setShowMockPaymentModal] = useState(false)
+  const [activePaymentOrderId, setActivePaymentOrderId] = useState<string | null>(null)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
   // Ambil data awal
   useEffect(() => {
@@ -199,6 +205,85 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
   const newScheduledPickupDate = (localDateTimeStr: string) => {
     // Ubah local datetime string ke format ISO
     return new Date(localDateTimeStr).toISOString()
+  }
+
+  // Inisiasi Pembayaran Midtrans / Mock
+  const handleInitiatePayment = async (orderId: string) => {
+    setIsProcessingPayment(true)
+    try {
+      const res = await fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Gagal memulai transaksi')
+
+      if (data.isMock) {
+        setActivePaymentOrderId(orderId)
+        setShowMockPaymentModal(true)
+      } else {
+        if (!(window as any).snap) {
+          const script = document.createElement('script')
+          script.src = 'https://app.sandbox.midtrans.com/snap/snap.js'
+          script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '')
+          document.body.appendChild(script)
+        }
+
+        setTimeout(() => {
+          if ((window as any).snap) {
+            ;(window as any).snap.pay(data.snapToken, {
+              onSuccess: function (result: any) {
+                alert('Pembayaran sukses!')
+                fetchOrders()
+              },
+              onPending: function (result: any) {
+                alert('Menunggu pembayaran...')
+              },
+              onError: function (result: any) {
+                alert('Pembayaran gagal!')
+              },
+            })
+          } else {
+            alert('Gagal memuat snap payment window. Silakan coba lagi.')
+          }
+        }, 1000)
+      }
+    } catch (err: any) {
+      alert(err.message || 'Gagal melakukan pembayaran')
+    } finally {
+      setIsProcessingPayment(false)
+    }
+  }
+
+  // Simulasi Pembayaran Sukses (Local Sandbox)
+  const handleSimulatePaymentSuccess = async () => {
+    if (!activePaymentOrderId) return
+    setIsProcessingPayment(true)
+    try {
+      const { error: payErr } = await supabase
+        .from('orders')
+        .update({ payment_status: 'paid' })
+        .eq('id', activePaymentOrderId)
+
+      if (payErr) throw payErr
+
+      await supabase.from('order_status_logs').insert({
+        order_id: activePaymentOrderId,
+        status: 'pending',
+        description: 'Pembayaran cashless via E-Wallet/Transfer sukses disimulasikan.',
+        updated_by: user.id,
+      })
+
+      setShowMockPaymentModal(false)
+      setActivePaymentOrderId(null)
+      fetchOrders()
+    } catch (err: any) {
+      alert(err.message || 'Gagal mensimulasikan pembayaran')
+    } finally {
+      setIsProcessingPayment(false)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -372,6 +457,15 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
                       <span className={`inline-block text-xs font-bold ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
                         {order.payment_status === 'paid' ? 'Lunas' : 'Belum Dibayar'} ({order.payment_method.toUpperCase()})
                       </span>
+                      {order.payment_status === 'unpaid' && (
+                        <button
+                          onClick={() => handleInitiatePayment(order.id)}
+                          disabled={isProcessingPayment}
+                          className="mt-2 block w-full md:w-auto text-xs bg-emerald-600 text-white font-bold py-1.5 px-3 rounded-xl hover:bg-emerald-700 transition"
+                        >
+                          Bayar Sekarang (Cashless)
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -623,6 +717,63 @@ export default function CustomerDashboard({ profile, user }: CustomerDashboardPr
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+      {/* Modal Simulasi Pembayaran Cashless */}
+      {showMockPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <DollarSign className="h-5.5 w-5.5 text-emerald-600" /> Simulasi Midtrans Snap Sandbox
+              </h3>
+              <button
+                onClick={() => {
+                  setShowMockPaymentModal(false)
+                  setActivePaymentOrderId(null)
+                }}
+                className="rounded-xl p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
+              Midtrans Server Key tidak terdeteksi di server environment. Sistem otomatis mengalihkan ke mode <strong>Sandbox Simulator</strong>.
+            </p>
+
+            <div className="bg-zinc-50 dark:bg-zinc-950 rounded-2xl p-4 border border-zinc-150 dark:border-zinc-800 mb-6 text-sm">
+              <div className="flex justify-between py-1">
+                <span className="text-zinc-500">ID Pesanan:</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-white">#{activePaymentOrderId?.slice(0, 8)}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-zinc-500">Metode Bayar:</span>
+                <span className="font-bold text-indigo-600 uppercase">E-Wallet / Transfer</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMockPaymentModal(false)
+                  setActivePaymentOrderId(null)
+                }}
+                className="w-1/2 rounded-2xl border border-zinc-200 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSimulatePaymentSuccess}
+                disabled={isProcessingPayment}
+                className="w-1/2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 text-sm font-bold text-white shadow-md hover:from-emerald-705"
+              >
+                Simulasikan Lunas
+              </button>
+            </div>
           </div>
         </div>
       )}
