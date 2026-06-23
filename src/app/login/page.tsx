@@ -23,11 +23,13 @@ export default function LoginPage() {
     setLoading(true)
     setMessage(null)
 
+    const finalEmail = email.includes('@') ? email.trim() : `${email.trim().toLowerCase()}@laundry.com`
+
     try {
       if (isLogin) {
         // Proses Login
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: finalEmail,
           password,
         })
 
@@ -43,7 +45,7 @@ export default function LoginPage() {
       } else {
         // Proses Register (Sign Up)
         const { error } = await supabase.auth.signUp({
-          email,
+          email: finalEmail,
           password,
           options: {
             data: {
@@ -178,19 +180,19 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* Input Email */}
+          {/* Input Email / Username */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Alamat Email
+              Username atau Email
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">
                 <Mail className="h-5 w-5" />
               </span>
               <input
-                type="email"
+                type="text"
                 required
-                placeholder="budi@example.com"
+                placeholder="Contoh: admin atau admin@laundry.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-2xl border border-zinc-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
@@ -251,46 +253,46 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setEmail('admin@laundry.com')
+                  setEmail('admin')
                   setPassword('laundry123')
                 }}
                 className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
               >
-                🔑 Admin
+                🔑 Admin (admin)
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setEmail('operator@laundry.com')
+                  setEmail('operator')
                   setPassword('laundry123')
                 }}
                 className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
               >
-                ⚙️ Operator
+                ⚙️ Operator (operator)
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setEmail('courier@laundry.com')
+                  setEmail('courier')
                   setPassword('laundry123')
                 }}
                 className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
               >
-                🚚 Kurir (Courier)
+                🚚 Kurir (courier)
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setEmail('customer@laundry.com')
+                  setEmail('customer')
                   setPassword('laundry123')
                 }}
                 className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
               >
-                👤 Pelanggan (Customer)
+                👤 Pelanggan (customer)
               </button>
             </div>
             <p className="mt-2.5 text-[10px] text-zinc-500 text-center leading-normal">
-              *Pilih akun di atas untuk mengisi otomatis. Jika belum terdaftar di Supabase Auth Anda, silakan switch ke <b>Buat Akun Baru</b> dengan email tersebut.
+              *Pilih akun di atas untuk mengisi otomatis. Jika belum terdaftar di Supabase Auth Anda, silakan switch ke <b>Buat Akun Baru</b> dengan username tersebut.
             </p>
           </div>
         )}
