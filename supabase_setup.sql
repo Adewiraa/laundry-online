@@ -41,13 +41,13 @@ CREATE POLICY "Pengguna dapat membaca profil sendiri" ON public.profiles
 CREATE POLICY "Pengguna dapat memperbarui profil sendiri" ON public.profiles
     FOR UPDATE USING (auth.uid() = id);
 
+CREATE OR REPLACE FUNCTION public.get_user_role(user_id UUID)
+RETURNS public.user_role AS $$
+  SELECT role FROM public.profiles WHERE id = user_id;
+$$ LANGUAGE sql SECURITY DEFINER;
+
 CREATE POLICY "Admin dapat melihat semua profil" ON public.profiles
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
-        )
-    );
+    FOR ALL USING (public.get_user_role(auth.uid()) = 'admin'::user_role);
 
 -- Trigger otomatis untuk membuat profile saat user mendaftar di Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
