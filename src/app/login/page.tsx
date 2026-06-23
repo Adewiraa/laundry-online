@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Shirt, Mail, Lock, User, Phone, Loader2, Sparkles } from 'lucide-react'
+import { Shirt, Mail, Lock, User, Phone, Loader2, Sparkles, Shield } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [role, setRole] = useState('customer')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -48,7 +49,7 @@ export default function LoginPage() {
             data: {
               full_name: fullName,
               phone_number: phoneNumber,
-              role: 'customer', // default role
+              role: role, // dynamic role chosen by user
             },
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
@@ -152,6 +153,28 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
+
+              {/* Peran Akun (Role - untuk Testing) */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Peran Akun (Role - untuk Testing)
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">
+                    <Shield className="h-5 w-5" />
+                  </span>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full rounded-2xl border border-zinc-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+                  >
+                    <option value="customer">Pelanggan (Customer)</option>
+                    <option value="courier">Kurir (Courier)</option>
+                    <option value="operator">Staf / Operator</option>
+                    <option value="admin">Admin / Owner</option>
+                  </select>
+                </div>
+              </div>
             </>
           )}
 
@@ -213,10 +236,64 @@ export default function LoginPage() {
             ) : isLogin ? (
               <>Masuk Sekarang <Sparkles className="h-4 w-4" /></>
             ) : (
-              'Daftar Akun'
+              'Daftar Akun Baru'
             )}
           </button>
         </form>
+
+        {/* Akun Demo/Testing */}
+        {isLogin && (
+          <div className="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-800">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3 text-center">
+              Pilihan Akun Demo (Testing)
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('admin@laundry.com')
+                  setPassword('laundry123')
+                }}
+                className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
+              >
+                🔑 Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('operator@laundry.com')
+                  setPassword('laundry123')
+                }}
+                className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
+              >
+                ⚙️ Operator
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('courier@laundry.com')
+                  setPassword('laundry123')
+                }}
+                className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
+              >
+                🚚 Kurir (Courier)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('customer@laundry.com')
+                  setPassword('laundry123')
+                }}
+                className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-850 dark:hover:bg-zinc-800 dark:text-zinc-200 text-left font-medium transition cursor-pointer"
+              >
+                👤 Pelanggan (Customer)
+              </button>
+            </div>
+            <p className="mt-2.5 text-[10px] text-zinc-500 text-center leading-normal">
+              *Pilih akun di atas untuk mengisi otomatis. Jika belum terdaftar di Supabase Auth Anda, silakan switch ke <b>Buat Akun Baru</b> dengan email tersebut.
+            </p>
+          </div>
+        )}
 
         {/* Toggle Mode */}
         <div className="mt-8 text-center">
