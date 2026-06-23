@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Pastikan kolom phone_number ada jika tabel profiles sudah ada sebelumnya dari project lain
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;
+
 -- Aktifkan Row Level Security (RLS) untuk profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
