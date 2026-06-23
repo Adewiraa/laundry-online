@@ -27,12 +27,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     full_name TEXT NOT NULL,
     phone_number TEXT,
+    email TEXT,
     role user_role DEFAULT 'customer'::user_role,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Pastikan kolom phone_number ada jika tabel profiles sudah ada sebelumnya dari project lain
+-- Pastikan kolom phone_number dan email ada jika tabel profiles sudah ada sebelumnya dari project lain
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Aktifkan Row Level Security (RLS) untuk profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -56,12 +58,13 @@ CREATE POLICY "Admin dapat melihat semua profil" ON public.profiles
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name, phone_number, role)
+  INSERT INTO public.profiles (id, full_name, phone_number, email, role)
   VALUES (
     new.id,
     COALESCE(new.raw_user_meta_data->>'full_name', 'User Baru'),
     new.raw_user_meta_data->>'phone_number',
-    COALESCE((new.raw_user_meta_data->>'role')::user_role, 'customer'::user_role)
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'role', 'customer')
   );
   RETURN new;
 END;
